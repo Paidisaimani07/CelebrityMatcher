@@ -37,6 +37,22 @@ DATASET_DIR = BASE_DIR / "dataset"
 UPLOAD_DIR = BASE_DIR / "uploads"
 CACHE_FILE = BASE_DIR / "embeddings_cache.pkl"
 
+def _dataset_relative_path(image_path_str: str) -> str:
+    """
+    Returns the path of an image relative to DATASET_DIR.
+
+    If the stored path was generated when the dataset lived in a different
+    directory (e.g. an old cache), .relative_to() would raise ValueError.
+    In that case we fall back to using the last two path components
+    (celebrity-folder/image-filename), which are always valid.
+    """
+    p = Path(image_path_str)
+    try:
+        return str(p.relative_to(DATASET_DIR)).replace("\\", "/")
+    except ValueError:
+        # Stale cache: rebuild relative path from the last two components
+        return "/".join(p.parts[-2:])
+
 # Ensure upload directory exists
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -528,7 +544,7 @@ def upload():
                 "score": best["score"],
                 "representative_image_url": url_for(
                     "serve_dataset_image", 
-                    filename=str(Path(best["best_match_path"]).relative_to(DATASET_DIR)).replace("\\", "/")
+                    filename=_dataset_relative_path(best["best_match_path"])
                 ),
                 "is_exact_match": is_exact
             },
@@ -538,7 +554,7 @@ def upload():
                     "score": item["score"],
                     "representative_image_url": url_for(
                         "serve_dataset_image", 
-                        filename=str(Path(item["best_match_path"]).relative_to(DATASET_DIR)).replace("\\", "/")
+                        filename=_dataset_relative_path(item["best_match_path"])
                     )
                 } for item in aggregated[:3]
             ]
